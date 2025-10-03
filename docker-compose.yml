@@ -1,0 +1,54 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.9-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - minha-rede-ia
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running", "-q"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gerador-mensagens:
+    build: ./gerador-de-mensagens
+    container_name: gerador-mensagens
+    networks:
+      - minha-rede-ia
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  consumidor-rosto-ia:
+    build: ./consumidor-face
+    container_name: consumidor-rosto-ia
+    networks:
+      - minha-rede-ia
+    restart: on-failure
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./imagens-recebidas-face:/app/imagens-recebidas-face
+
+  consumidor-time-ia:
+    build: ./consumidor-time
+    container_name: consumidor-time-ia
+    networks:
+      - minha-rede-ia
+    restart: on-failure
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./imagens-recebidas-time:/app/imagens-recebidas-time
+
+networks:
+  minha-rede-ia:
+    driver: bridge
