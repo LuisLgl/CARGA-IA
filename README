@@ -1,182 +1,69 @@
-📦 CARGA-IA - Mensageria com RabbitMQ
-Este projeto demonstra um sistema de mensageria assíncrono utilizando RabbitMQ para orquestrar o processamento de diferentes tipos de cargas de trabalho, simulando um ambiente de Inteligência Artificial.
+# 🖼️ Sistema de Classificação de Imagens com IA e Mensageria  
 
-O sistema é composto por:
+Este projeto demonstra um **sistema distribuído para classificação de imagens**.  
+Um **serviço produtor** em Java envia imagens de **faces** e **times** para uma fila no **RabbitMQ**.  
+Dois **serviços consumidores com IA** processam, classificam e salvam as imagens em pastas de saída.  
+Todo o ambiente é **orquestrado com Docker Compose**.  
 
-Um gerador de mensagens: Publica tarefas em uma fila.
 
-Dois consumidores especializados: Cada um processa um tipo específico de mensagem (rosto ou tempo).
+## 🚀 Tecnologias  
+- **Linguagem:** Java 11 (Maven)  
+- **Mensageria:** RabbitMQ  
+- **Machine Learning:** Smile ML  
+- **Containerização:** Docker + Docker Compose  
 
-Tudo containerizado com Docker e orquestrado com Docker Compose para facilitar a execução.
 
-🚀 Tecnologias Utilizadas
-Docker & Docker Compose
+## 📂 Estrutura de Diretórios  
+.
+├── docker-compose.yml
+├── gerador-de-mensagens/ # Serviço produtor (Java)
+├── consumidor-face/ # Serviço consumidor de faces
+├── consumidor-time/ # Serviço consumidor de times
+├── imagens/ # Imagens para ENVIO
+│ ├── image-faces/
+│ └── image-times/
+├── imagenstreino/ # Imagens para TREINO
+│ ├── image-faces/
+│ └── image-times/
+├── imagens-recebidas-face/ # Saída das imagens de faces
+└── imagens-recebidas-time/ # Saída das imagens de times
 
-RabbitMQ 3.9 (com Management Plugin)
 
-Java 11 (Adoptium)
+## ▶️ Como Executar  
 
-Maven 3.x
+### 🔧 Pré-requisitos  
+- Docker  
+- Docker Compose  
 
-🛠️ Pré-requisitos
-Antes de começar, garanta que você tenha as seguintes ferramentas instaladas em sua máquina:
+### 📑 Preparação  
+1. Clone este repositório.  
+2. Adicione suas imagens de **envio** em:  
+   - `imagens/image-faces/`  
+   - `imagens/image-times/`  
+3. Adicione imagens de **treino** (exemplo: `FELIZ_1.jpg`, `flamengo.png`) em:  
+   - `imagenstreino/image-faces/`  
+   - `imagenstreino/image-times/`  
 
-Docker
+### ▶️ Rodar o projeto  
+```bash
+docker-compose up --build
+🔍 Verificar
+Imagens classificadas aparecerão em:
 
-Docker Compose
+imagens-recebidas-face/
 
-Java 11+ (JDK)
+imagens-recebidas-time/
 
-Apache Maven
-
-⚙️ Como Executar
-Siga os passos abaixo para colocar o ambiente no ar.
-
-1. Clone o repositório:
-
-Bash
-
-git clone https://github.com/seu-repo/CARGA-IA.git
-cd CARGA-IA
-2. Compile os módulos e gere os JARs:
-Este comando irá compilar todos os módulos Java (gerador-mensagens, consumidor-face, consumidor-time).
-
-Bash
-
-mvn clean package
-3. Suba os containers:
-O Docker Compose irá construir as imagens e iniciar todos os serviços em background (-d).
-
-Bash
-
-docker-compose up --build -d
-4. Verifique se os containers estão ativos:
-
-Bash
-
-docker ps
-A saída esperada deve ser semelhante a esta:
-
-              NAME                           COMMAND                  STATUS          PORTS
------------------------------------------------------------------------------------------------------------
-carga-ia-consumidor-face-1       "java -jar app.jar"      Up              
-carga-ia-consumidor-time-1       "java -jar app.jar"      Up              
-carga-ia-gerador-mensagens-1     "java -jar app.jar"      Up              
-rabbitmq                         "docker-entrypoint.s…"   Up      0.0.0.0:5672->5672/tcp, 0.0.0.0:15672->15672/tcp
-5. Monitore os logs dos consumidores (Opcional):
-Para ver as mensagens sendo processadas em tempo real, use o comando abaixo:
-
-Bash
-
-# Para o consumidor de rosto
-docker-compose logs -f consumidor-face
-
-# Para o consumidor de tempo
-docker-compose logs -f consumidor-time
-📊 Painel de Monitoramento (RabbitMQ)
-Você pode monitorar as filas, trocas (exchanges), mensagens em trânsito e consumidores conectados através do painel de gerenciamento do RabbitMQ.
-
-URL: http://localhost:15672
+Acesse a interface do RabbitMQ em:
+👉 http://localhost:15672
 
 Usuário: user
 
 Senha: password
 
-📨 Arquitetura e Fluxo de Mensagens
-O Gerador de Mensagens publica mensagens em uma exchange do tipo direct chamada ia_exchange. Cada mensagem possui uma routing key (chave de roteamento) que determina para qual fila ela deve ser enviada.
+🛑 Parar o ambiente
+Pressione Ctrl + C no terminal e depois rode:
 
-Exchange: ia_exchange (direct)
-
-Filas:
-
-face_queue: Recebe mensagens com a routing key rosto.
-
-time_queue: Recebe mensagens com a routing key tempo.
-
-Consumidores:
-
-consumidor-face: Escuta a fila face_queue.
-
-consumidor-time: Escuta a fila time_queue.
-
-Snippet de código
-
-graph TD
-    A[Gerador de Mensagens] -- Manda msg com routing key 'rosto' --> B(Exchange: ia_exchange);
-    A -- Manda msg com routing key 'tempo' --> B;
-    B -- routing key: 'rosto' --> C[Fila: face_queue];
-    B -- routing key: 'tempo' --> D[Fila: time_queue];
-    C --> E[Consumidor Face];
-    D --> F[Consumidor Time];
-💻 Exemplos de Código
-Abaixo estão exemplos simplificados de como o produtor envia e como um consumidor recebe uma mensagem.
-
-Produtor (Gerador de Mensagens)
-Java
-
-// Pacote: gerador-mensagens
-
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Channel;
-
-public class MessageProducer {
-    private final static String EXCHANGE_NAME = "ia_exchange";
-
-    public void sendMessage(String routingKey, String message) throws Exception {
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("rabbitmq"); // Nome do serviço no docker-compose
-
-        try (Connection connection = factory.newConnection();
-             Channel channel = connection.createChannel()) {
-            
-            channel.exchangeDeclare(EXCHANGE_NAME, "direct");
-            
-            channel.basicPublish(EXCHANGE_NAME, routingKey, null, message.getBytes("UTF-8"));
-            System.out.println(" [x] Enviada '" + routingKey + "':'" + message + "'");
-        }
-    }
-}
-Consumidor (Ex: Consumidor de Rosto)
-Java
-
-// Pacote: consumidor-face
-
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.DeliverCallback;
-
-public class MessageConsumer {
-    private final static String EXCHANGE_NAME = "ia_exchange";
-    private final static String QUEUE_NAME = "face_queue";
-
-    public void startListening() throws Exception {
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("rabbitmq");
-
-        Connection connection = factory.newConnection();
-        Channel channel = connection.createChannel();
-
-        channel.exchangeDeclare(EXCHANGE_NAME, "direct");
-        channel.queueDeclare(QUEUE_NAME, true, false, false, null);
-        channel.queueBind(QUEUE_NAME, EXCHANGE_NAME, "rosto"); // Binding com a routing key
-
-        System.out.println(" [*] Aguardando mensagens de rosto. Para sair, pressione CTRL+C");
-
-        DeliverCallback deliverCallback = (consumerTag, delivery) -> {
-            String message = new String(delivery.getBody(), "UTF-8");
-            System.out.println(" [x] Recebida: '" + message + "'");
-            // Lógica de processamento de rosto aqui...
-        };
-        channel.basicConsume(QUEUE_NAME, true, deliverCallback, consumerTag -> { });
-    }
-}
-
-🛑 Parando a Aplicação
-Para parar e remover todos os containers relacionados ao projeto:
-
-Bash
-
+bash
+Copiar código
 docker-compose down
-Este comando também removerá a rede criada pelo Docker Compose.
