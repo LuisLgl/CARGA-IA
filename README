@@ -78,9 +78,9 @@ Você pode monitorar as filas, trocas (exchanges), mensagens em trânsito e cons
 
 URL: http://localhost:15672
 
-Usuário: guest
+Usuário: user
 
-Senha: guest
+Senha: password
 
 📨 Arquitetura e Fluxo de Mensagens
 O Gerador de Mensagens publica mensagens em uma exchange do tipo direct chamada ia_exchange. Cada mensagem possui uma routing key (chave de roteamento) que determina para qual fila ela deve ser enviada.
