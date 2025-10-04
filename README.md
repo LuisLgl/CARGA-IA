@@ -12,23 +12,6 @@ Todo o ambiente é **orquestrado com Docker Compose**.
 - **Machine Learning:** Smile ML  
 - **Containerização:** Docker + Docker Compose  
 
-
-## 📂 Estrutura de Diretórios
-.
-├── docker-compose.yml                # Orquestração dos serviços
-├── gerador-de-mensagens/             # Serviço produtor (Java)
-├── consumidor-face/                  # Serviço consumidor de faces
-├── consumidor-time/                  # Serviço consumidor de times
-├── imagens/                          # Imagens para ENVIO
-│   ├── image-faces/
-│   └── image-times/
-├── imagenstreino/                    # Imagens para TREINO
-│   ├── image-faces/
-│   └── image-times/
-├── imagens-recebidas-face/           # Saída das imagens de faces
-└── imagens-recebidas-time/           # Saída das imagens de times
-
-
 ## ▶️ Como Executar  
 
 ### 🔧 Pré-requisitos  
