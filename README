@@ -1,4 +1,3 @@
-```markdown
 # 📦 CARGA-IA - Mensageria com RabbitMQ
 
 Este projeto demonstra um sistema de mensageria assíncrono utilizando RabbitMQ para orquestrar o processamento de diferentes tipos de cargas de trabalho, simulando um ambiente de Inteligência Artificial.
@@ -7,38 +6,38 @@ Este projeto demonstra um sistema de mensageria assíncrono utilizando RabbitMQ 
 
 O sistema é composto por:
 
-- **Um gerador de mensagens**: Publica tarefas em uma fila.
-- **Dois consumidores especializados**: Cada um processa um tipo específico de mensagem (rosto ou tempo).
-- **Tudo containerizado** com Docker e orquestrado com Docker Compose para facilitar a execução.
+* **Um gerador de mensagens**: Publica tarefas em uma fila
+* **Dois consumidores especializados**: Cada um processa um tipo específico de mensagem (rosto ou tempo)
+* **Tudo containerizado** com Docker e orquestrado com Docker Compose para facilitar a execução
 
 ## 🚀 Tecnologias Utilizadas
 
-- Docker & Docker Compose
-- RabbitMQ 3.9 (com Management Plugin)
-- Java 11 (Adoptium)
-- Maven 3.x
+* Docker & Docker Compose
+* RabbitMQ 3.9 (com Management Plugin)
+* Java 11 (Adoptium)
+* Maven 3.x
 
 ## 🛠️ Pré-requisitos
 
 Antes de começar, garanta que você tenha as seguintes ferramentas instaladas em sua máquina:
 
-- Docker
-- Docker Compose
-- Java 11+ (JDK)
-- Apache Maven
+* Docker
+* Docker Compose
+* Java 11+ (JDK)
+* Apache Maven
 
 ## ⚙️ Como Executar
 
 Siga os passos abaixo para colocar o ambiente no ar.
 
-### 1. Clone o repositório:
+### 1. Clone o repositório
 
 ```bash
 git clone https://github.com/seu-repo/CARGA-IA.git
 cd CARGA-IA
 ```
 
-### 2. Compile os módulos e gere os JARs:
+### 2. Compile os módulos e gere os JARs
 
 Este comando irá compilar todos os módulos Java (gerador-mensagens, consumidor-face, consumidor-time).
 
@@ -46,7 +45,7 @@ Este comando irá compilar todos os módulos Java (gerador-mensagens, consumidor
 mvn clean package
 ```
 
-### 3. Suba os containers:
+### 3. Suba os containers
 
 O Docker Compose irá construir as imagens e iniciar todos os serviços em background (-d).
 
@@ -54,7 +53,7 @@ O Docker Compose irá construir as imagens e iniciar todos os serviços em backg
 docker-compose up --build -d
 ```
 
-### 4. Verifique se os containers estão ativos:
+### 4. Verifique se os containers estão ativos
 
 ```bash
 docker ps
@@ -71,7 +70,7 @@ carga-ia-gerador-mensagens-1     "java -jar app.jar"      Up
 rabbitmq                         "docker-entrypoint.s…"   Up      0.0.0.0:5672->5672/tcp, 0.0.0.0:15672->15672/tcp
 ```
 
-### 5. Monitore os logs dos consumidores (Opcional):
+### 5. Monitore os logs dos consumidores (Opcional)
 
 Para ver as mensagens sendo processadas em tempo real, use o comando abaixo:
 
@@ -87,30 +86,34 @@ docker-compose logs -f consumidor-time
 
 Você pode monitorar as filas, trocas (exchanges), mensagens em trânsito e consumidores conectados através do painel de gerenciamento do RabbitMQ.
 
-- **URL**: http://localhost:15672
-- **Usuário**: `user`
-- **Senha**: `password`
+* **URL**: http://localhost:15672
+* **Usuário**: `user`
+* **Senha**: `password`
 
 ## 📨 Arquitetura e Fluxo de Mensagens
 
 O Gerador de Mensagens publica mensagens em uma exchange do tipo `direct` chamada `ia_exchange`. Cada mensagem possui uma routing key (chave de roteamento) que determina para qual fila ela deve ser enviada.
 
-- **Exchange**: `ia_exchange` (direct)
-- **Filas**:
-  - `face_queue`: Recebe mensagens com a routing key `rosto`.
-  - `time_queue`: Recebe mensagens com a routing key `tempo`.
-- **Consumidores**:
-  - `consumidor-face`: Escuta a fila `face_queue`.
-  - `consumidor-time`: Escuta a fila `time_queue`.
+* **Exchange**: `ia_exchange` (direct)
+* **Filas**:
+  * `face_queue`: Recebe mensagens com a routing key `rosto`
+  * `time_queue`: Recebe mensagens com a routing key `tempo`
+* **Consumidores**:
+  * `consumidor-face`: Escuta a fila `face_queue`
+  * `consumidor-time`: Escuta a fila `time_queue`
 
-```mermaid
-graph TD
-    A[Gerador de Mensagens] -- Manda msg com routing key 'rosto' --> B(Exchange: ia_exchange);
-    A -- Manda msg com routing key 'tempo' --> B;
-    B -- routing key: 'rosto' --> C[Fila: face_queue];
-    B -- routing key: 'tempo' --> D[Fila: time_queue];
-    C --> E[Consumidor Face];
-    D --> F[Consumidor Time];
+### Diagrama de Fluxo
+
+```
+Gerador de Mensagens
+    |
+    | (routing key: 'rosto' ou 'tempo')
+    v
+Exchange: ia_exchange (direct)
+    |
+    +---> (routing key: 'rosto') ---> face_queue ---> Consumidor Face
+    |
+    +---> (routing key: 'tempo') ---> time_queue ---> Consumidor Time
 ```
 
 ## 💻 Exemplos de Código
@@ -192,3 +195,14 @@ docker-compose down
 
 Este comando também removerá a rede criada pelo Docker Compose.
 
+## 📝 Licença
+
+Este projeto está sob a licença MIT.
+
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e pull requests.
+
+---
+
+Desenvolvido com ❤️ para aprendizado de mensageria e sistemas distribuídos
