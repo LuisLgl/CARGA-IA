@@ -51,11 +51,10 @@ bash
 Copiar código
 docker-compose down
 <<<<<<< HEAD
+```
 
 ### 🎬 Passo a Passo em Vídeo
 
 Para acompanhar o passo a passo completo do projeto, assista ao vídeo no YouTube:  
 
 [Assista ao vídeo](https://youtu.be/Vqc4NMQyWko)
-=======
->>>>>>> 41abfa333e0ff06277cd01f0d085595ef3f424c5
