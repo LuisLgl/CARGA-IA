@@ -21,6 +21,8 @@ services:
     container_name: gerador-mensagens
     networks:
       - minha-rede-ia
+    volumes:
+      - ./imagens:/app/imagens
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -36,18 +38,20 @@ services:
         condition: service_healthy
     volumes:
       - ./imagens-recebidas-face:/app/imagens-recebidas-face
+      - ./imagenstreino/image-faces:/app/imagenstreino/image-faces 
 
   consumidor-time-ia:
     build: ./consumidor-time
     container_name: consumidor-time-ia
     networks:
       - minha-rede-ia
-    restart: on-failure
+    restart: on-failure 
     depends_on:
       rabbitmq:
         condition: service_healthy
     volumes:
       - ./imagens-recebidas-time:/app/imagens-recebidas-time
+      - ./imagenstreino/image-times:/app/imagenstreino/image-times 
 
 networks:
   minha-rede-ia:

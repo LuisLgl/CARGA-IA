@@ -2,28 +2,32 @@ package com.example;
 
 import com.rabbitmq.client.*;
 import smile.classification.KNN;
-
 import javax.imageio.ImageIO;
-import java.awt.*;
-import java.awt.geom.Arc2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class ConsumidorFace {
     private static final String EXCHANGE_NAME = "imagens_exchange";
     private static final String ROUTING_KEY = "face.#";
     private static KNN<double[]> modelo;
+
+    private static final String TRAIN_DIR = "/app/imagenstreino/image-faces";
     private static final String SAVE_DIR = "/app/imagens-recebidas-face";
 
     public static void main(String[] args) throws IOException, TimeoutException {
+        Files.createDirectories(Paths.get(TRAIN_DIR));
         Files.createDirectories(Paths.get(SAVE_DIR));
+
         treinarModelo();
 
         ConnectionFactory factory = new ConnectionFactory();
@@ -35,81 +39,138 @@ public class ConsumidorFace {
         Channel channel = connection.createChannel();
 
         channel.exchangeDeclare(EXCHANGE_NAME, "topic");
-        String queueName = channel.queueDeclare().getQueue();
+        
+        // <<< ALTERAÇÃO PARA NOMEAR A FILA >>>
+        String queueName = "fila_faces"; // 1. Nome fixo para a fila
+        boolean durable = true;          // 2. A fila sobreviverá a reinicializações
+        channel.queueDeclare(queueName, durable, false, false, null); // 3. Declaração da fila
+        
         channel.queueBind(queueName, EXCHANGE_NAME, ROUTING_KEY);
-        System.out.println(" [*] Consumidor de FACES (com IA Multi-Característica) aguardando imagens.");
+        System.out.println(" [*] Consumidor de FACES aguardando imagens na fila '" + queueName + "'");
 
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
-            byte[] imageBytes = delivery.getBody();
             try {
+                byte[] imageBytes = delivery.getBody();
                 BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
 
-                // Extrai o novo vetor de 6 características da imagem
-                double[] features = extrairTodasFeatures(img);
+                if (img != null) {
+                    double[] features = extrairTodasFeatures(img);
+                    int predicao = modelo.predict(features);
+                    String resultado = (predicao == 1) ? "FELIZ" : "TRISTE";
 
-                int pred = modelo.predict(features);
-                String resultado = (pred == 1) ? "FELIZ" : "TRISTE";
+                    img = desenharTextoNaImagem(img, resultado);
 
-                String fileName = String.format("%s_%d.jpg", resultado, System.currentTimeMillis());
-                try (FileOutputStream fos = new FileOutputStream(SAVE_DIR + "/" + fileName)) {
-                    fos.write(imageBytes);
-                    System.out.println("     -> Imagem salva como: " + fileName);
+                    String originalFileName = "desconhecido_" + System.currentTimeMillis() + ".jpg";
+
+                    AMQP.BasicProperties props = delivery.getProperties();
+                    Map<String, Object> headers = props.getHeaders();
+                    if (headers != null && headers.containsKey("filename")) {
+                        originalFileName = headers.get("filename").toString();
+                    }
+
+                    File outputFile = new File(SAVE_DIR + "/" + originalFileName);
+                    ImageIO.write(img, "jpg", outputFile);
+
+                    StringBuilder logMessage = new StringBuilder();
+                    logMessage.append("[x] Recebido '").append(delivery.getEnvelope().getRoutingKey()).append("'\n");
+                    logMessage.append("    -> Resultado da Inferência: ").append(resultado).append(predicao == 1 ? " 😀" : " 😢").append("\n");
+                    logMessage.append("    -> Imagem salva como: ").append(originalFileName).append("\n");
+
+                    System.out.println(logMessage.toString());
+                    
+                    TimeUnit.SECONDS.sleep(5);
                 }
-
-                System.out.println(" [x] Recebido '" + delivery.getEnvelope().getRoutingKey() + "'");
-                TimeUnit.MILLISECONDS.sleep(800);
-                System.out.println("     -> Resultado: " + resultado + (pred == 1 ? " 😀" : " 😢"));
-
+            } catch (InterruptedException e) {
+                System.err.println("A thread foi interrompida durante a pausa.");
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
-                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                try {
+                    channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         };
-
+        channel.basicQos(1);
         channel.basicConsume(queueName, false, deliverCallback, consumerTag -> {});
     }
 
-    /**
-     * Treina o modelo usando o novo "super-vetor" de características.
-     */
-    private static void treinarModelo() {
-        System.out.println("Treinando o modelo de IA do Smile com múltiplas características...");
-        
-        BufferedImage sampleHappy = criarImagemFaceDeExemplo(true);
-        BufferedImage sampleSad = criarImagemFaceDeExemplo(false);
-
-        double[] happyFeatures = extrairTodasFeatures(sampleHappy);
-        double[] sadFeatures = extrairTodasFeatures(sampleSad);
-
-        System.out.format("   - Features de 'Feliz': [R:%.0f, G:%.0f, B:%.0f, BocaSup:%.2f, BocaInf:%.2f, Diff:%.2f]\n", 
-            happyFeatures[0], happyFeatures[1], happyFeatures[2], happyFeatures[3], happyFeatures[4], happyFeatures[5]);
-        System.out.format("   - Features de 'Triste': [R:%.0f, G:%.0f, B:%.0f, BocaSup:%.2f, BocaInf:%.2f, Diff:%.2f]\n", 
-            sadFeatures[0], sadFeatures[1], sadFeatures[2], sadFeatures[3], sadFeatures[4], sadFeatures[5]);
-
-        double[][] features = { happyFeatures, happyFeatures, sadFeatures, sadFeatures };
-        int[] labels = {1, 1, 0, 0};
-        
-        modelo = KNN.fit(features, labels, 3); 
-        System.out.println("Modelo treinado!");
+    private static BufferedImage desenharTextoNaImagem(BufferedImage img, String texto) {
+        Graphics2D g = img.createGraphics();
+        Font font = new Font("Arial", Font.BOLD, 36);
+        g.setFont(font);
+        g.setColor(Color.YELLOW);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawString(texto, 10, 40);
+        g.dispose();
+        return img;
     }
 
-    /**
-     * Função principal que combina todas as características em um único vetor.
-     */
+    private static void treinarModelo() {
+        System.out.println("Iniciando treinamento do modelo de faces com imagens de " + TRAIN_DIR);
+        File diretorioDeTreino = new File(TRAIN_DIR);
+        File[] arquivos = diretorioDeTreino.listFiles((dir, name) ->
+                name.toLowerCase().endsWith(".png") ||
+                name.toLowerCase().endsWith(".jpg") ||
+                name.toLowerCase().endsWith(".jpeg")
+        );
+        List<double[]> featuresList = new ArrayList<>();
+        List<Integer> labelsList = new ArrayList<>();
+        if (arquivos != null) {
+            System.out.println("Encontrados " + arquivos.length + " arquivos de imagem para processar.");
+            for (File arquivo : arquivos) {
+                String nome = arquivo.getName().toUpperCase();
+                try {
+                    BufferedImage img = ImageIO.read(arquivo);
+                    if (img == null) {
+                        System.err.println("AVISO: Falha ao ler o arquivo de imagem: " + arquivo.getName());
+                        continue;
+                    }
+                    if (nome.startsWith("FELIZ")) {
+                        featuresList.add(extrairTodasFeatures(img));
+                        labelsList.add(1);
+                    } else if (nome.startsWith("TRISTE")) {
+                        featuresList.add(extrairTodasFeatures(img));
+                        labelsList.add(0);
+                    }
+                } catch (IOException e) {
+                    System.err.println("Erro de I/O ao ler imagem de treinamento: " + arquivo.getName());
+                }
+            }
+        }
+        if (featuresList.size() > 1 && labelsList.stream().distinct().count() > 1) {
+            double[][] features = featuresList.toArray(new double[0][]);
+            int[] labels = labelsList.stream().mapToInt(Integer::intValue).toArray();
+            int k = Math.min(3, features.length - 1);
+            if (k < 1) k = 1;
+            modelo = KNN.fit(features, labels, k);
+            System.out.println("✅ Modelo de IA para faces treinado com " + features.length + " imagens!");
+        } else {
+            System.out.println("‼️ AVISO: Não foram encontradas imagens suficientes. Usando modelo de fallback.");
+            double[][] features = {{0, 0, 0, 0, 0, 0}, {1, 1, 1, 1, 1, 1}};
+            int[] labels = {0, 1};
+            modelo = KNN.fit(features, labels, 1);
+        }
+    }
+
     private static double[] extrairTodasFeatures(BufferedImage img) {
         double[] featuresBoca = extrairFeaturesBoca(img);
         double[] featuresCor = extrairFeaturesCorDeFundo(img);
-        
-        // Retorna um único array com 6 posições
-        return new double[] {
-            featuresCor[0],    // R médio do fundo
-            featuresCor[1],    // G médio do fundo
-            featuresCor[2],    // B médio do fundo
-            featuresBoca[0],   // Proporção de preto na parte superior da boca
-            featuresBoca[1],   // Proporção de preto na parte inferior da boca
-            featuresBoca[2]    // Diferença entre as proporções
-        };
+        return new double[]{featuresCor[0], featuresCor[1], featuresCor[2], featuresBoca[0], featuresBoca[1], featuresBoca[2]};
+    }
+
+    private static double[] extrairFeaturesCorDeFundo(BufferedImage img) {
+        if (img == null || img.getWidth() < 2 || img.getHeight() < 2) return new double[]{0.0, 0.0, 0.0};
+        Color c1 = new Color(img.getRGB(1, 1));
+        Color c2 = new Color(img.getRGB(img.getWidth() - 2, 1));
+        Color c3 = new Color(img.getRGB(1, img.getHeight() - 2));
+        Color c4 = new Color(img.getRGB(img.getWidth() - 2, img.getHeight() - 2));
+        double avgR = (c1.getRed() + c2.getRed() + c3.getRed() + c4.getRed()) / 4.0;
+        double avgG = (c1.getGreen() + c2.getGreen() + c3.getGreen() + c4.getGreen()) / 4.0;
+        double avgB = (c1.getBlue() + c2.getBlue() + c3.getBlue() + c4.getBlue()) / 4.0;
+        return new double[]{avgR, avgG, avgB};
     }
 
     private static double[] extrairFeaturesBoca(BufferedImage img) {
@@ -119,65 +180,23 @@ public class ConsumidorFace {
         int bocaLeft = width / 2 - 40, bocaRight = width / 2 + 40;
         int midY = (bocaTop + bocaBottom) / 2;
         long topBlack = 0, bottomBlack = 0, topTotalPixels = 0, bottomTotalPixels = 0;
-
         for (int y = bocaTop; y < bocaBottom; y++) {
             for (int x = bocaLeft; x < bocaRight; x++) {
-                int rgb = img.getRGB(x, y);
-                boolean isBlack = ((rgb >> 16) & 0xFF) < 50 && ((rgb >> 8) & 0xFF) < 50 && (rgb & 0xFF) < 50;
-                if (y < midY) {
-                    topTotalPixels++;
-                    if (isBlack) topBlack++;
-                } else {
-                    bottomTotalPixels++;
-                    if (isBlack) bottomBlack++;
+                if (x >= 0 && x < width && y >= 0 && y < height) {
+                    int rgb = img.getRGB(x, y);
+                    boolean isBlack = ((rgb >> 16) & 0xFF) < 50 && ((rgb >> 8) & 0xFF) < 50 && (rgb & 0xFF) < 50;
+                    if (y < midY) {
+                        topTotalPixels++;
+                        if (isBlack) topBlack++;
+                    } else {
+                        bottomTotalPixels++;
+                        if (isBlack) bottomBlack++;
+                    }
                 }
             }
         }
         double topRatio = (topTotalPixels > 0) ? (double) topBlack / topTotalPixels : 0.0;
         double bottomRatio = (bottomTotalPixels > 0) ? (double) bottomBlack / bottomTotalPixels : 0.0;
         return new double[]{topRatio, bottomRatio, topRatio - bottomRatio};
-    }
-    
-    /**
-     * Nova função para extrair a cor média do fundo, amostrando os cantos.
-     */
-    private static double[] extrairFeaturesCorDeFundo(BufferedImage img) {
-        if (img == null) return new double[]{0.0, 0.0, 0.0};
-        
-        // Pega a cor dos 4 cantos da imagem
-        Color c1 = new Color(img.getRGB(1, 1));
-        Color c2 = new Color(img.getRGB(img.getWidth() - 2, 1));
-        Color c3 = new Color(img.getRGB(1, img.getHeight() - 2));
-        Color c4 = new Color(img.getRGB(img.getWidth() - 2, img.getHeight() - 2));
-
-        // Calcula a média dos componentes RGB
-        double avgR = (c1.getRed() + c2.getRed() + c3.getRed() + c4.getRed()) / 4.0;
-        double avgG = (c1.getGreen() + c2.getGreen() + c3.getGreen() + c4.getGreen()) / 4.0;
-        double avgB = (c1.getBlue() + c2.getBlue() + c3.getBlue() + c4.getBlue()) / 4.0;
-        
-        return new double[]{avgR, avgG, avgB};
-    }
-    
-    private static BufferedImage criarImagemFaceDeExemplo(boolean feliz) {
-        // ... (código idêntico ao do Gerador para criar a imagem de exemplo)
-        int width = 200, height = 200;
-        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g2d = img.createGraphics();
-        g2d.setColor(feliz ? new Color(255, 250, 205) : new Color(220, 240, 255));
-        g2d.fillRect(0, 0, width, height);
-        g2d.setColor(new Color(240, 200, 160));
-        g2d.fillOval(30, 30, width - 60, height - 60);
-        g2d.setColor(Color.BLACK);
-        g2d.drawOval(30, 30, width - 60, height - 60);
-        g2d.fillOval(width / 3 - 5, height / 3, 10, 10);
-        g2d.fillOval(2 * width / 3 - 5, height / 3, 10, 10);
-        g2d.setStroke(new BasicStroke(3));
-        if (feliz) {
-            g2d.draw(new Arc2D.Double(width/2.0 - 30, 2*height/3.0 - 15, 60, 30, 180, 180, Arc2D.OPEN));
-        } else {
-            g2d.draw(new Arc2D.Double(width/2.0 - 30, 2*height/3.0, 60, 30, 0, 180, Arc2D.OPEN));
-        }
-        g2d.dispose();
-        return img;
     }
 }
