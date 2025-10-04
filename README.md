@@ -67,3 +67,9 @@ Pressione Ctrl + C no terminal e depois rode:
 bash
 Copiar código
 docker-compose down
+
+### 🎬 Passo a Passo em Vídeo
+
+Para acompanhar o passo a passo completo do projeto, assista ao vídeo no YouTube:  
+
+[Assista ao vídeo](https://youtu.be/Vqc4NMQyWko)

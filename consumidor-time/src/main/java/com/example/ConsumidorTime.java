@@ -45,9 +45,6 @@ public class ConsumidorTime {
         
         String queueName = "fila_times";
         boolean durable = true; 
-        
-        // <<< CORREÇÃO APLICADA AQUI >>>
-        // Adicionada a linha que declara (cria) a fila antes de usá-la.
         channel.queueDeclare(queueName, durable, false, false, null);
         
         channel.queueBind(queueName, EXCHANGE_NAME, ROUTING_KEY);
@@ -62,11 +59,13 @@ public class ConsumidorTime {
                     int predicao = modelo.predict(features);
                     
                     String time;
+                    // <<< ALTERAÇÃO 1: Adicionado Wolfsburg ao resultado >>>
                     switch (predicao) {
                         case 0: time = "Flamengo"; break;
                         case 1: time = "Borussia Dortmund"; break;
                         case 2: time = "Gremio"; break;
                         case 3: time = "Fluminense"; break;
+                        case 4: time = "Wolfsburg"; break; // Adicionado
                         default: time = "Desconhecido"; break;
                     }
 
@@ -105,7 +104,6 @@ public class ConsumidorTime {
             }
         };
 
-        // Ótima adição! Garante que o consumidor só pegue uma mensagem por vez.
         channel.basicQos(1); 
         channel.basicConsume(queueName, false, deliverCallback, consumerTag -> {});
     }
@@ -140,10 +138,12 @@ public class ConsumidorTime {
                     double[] features = extrairFeatureDeCorDominante(img);
                     Integer label = null;
                     
+                    // <<< ALTERAÇÃO 2: Adicionado Wolfsburg ao treino >>>
                     if (nome.startsWith("fluminense")) label = 3;
                     else if (nome.startsWith("flamengo")) label = 0;
                     else if (nome.startsWith("borussia-dortmund")) label = 1;
                     else if (nome.startsWith("gremio")) label = 2;
+                    else if (nome.startsWith("vfl-wolfsburg")) label = 4; // Adicionado
 
                     if (label != null) {
                         featuresList.add(features);
@@ -163,40 +163,78 @@ public class ConsumidorTime {
             System.out.println("✅ Modelo de IA para times treinado com " + x.length + " imagens!");
         } else {
             System.out.println("‼️ AVISO: Nenhuma imagem de treino válida foi encontrada. Usando modelo de fallback.");
-            modelo = KNN.fit(new double[][]{{0,0,0,0}}, new int[]{99}, 1);
+            // Atualizado para 5 características
+            modelo = KNN.fit(new double[][]{{0,0,0,0,0}}, new int[]{99}, 1);
         }
     }
 
-    private static double[] extrairFeatureDeCorDominante(BufferedImage img) {
-        if (img == null) return new double[]{0,0,0,0};
+    /**
+     * <<< ALTERAÇÃO 3: LÓGICA DE COR MELHORADA >>>
+     * Agora diferencia verde claro de verde escuro usando o modelo de cor HSB.
+     */
+   private static double[] extrairFeatureDeCorDominante(BufferedImage img) {
+    if (img == null) return new double[]{0,0,0,0,0};
 
-        int redCount = 0, yellowCount = 0, blueCount = 0, greenCount = 0;
+    int redStrongCount = 0, redDarkCount = 0, yellowCount = 0, blueCount = 0, darkGreenCount = 0, lightGreenCount = 0;
 
-        for (int y = 0; y < img.getHeight(); y++) {
-            for (int x = 0; x < img.getWidth(); x++) {
-                Color pixel = new Color(img.getRGB(x, y), true);
-                if (pixel.getAlpha() < 100) continue;
+    for (int y = 0; y < img.getHeight(); y++) {
+        for (int x = 0; x < img.getWidth(); x++) {
+            Color pixel = new Color(img.getRGB(x, y), true);
+            if (pixel.getAlpha() < 100) continue;
 
-                int r = pixel.getRed();
-                int g = pixel.getGreen();
-                int b = pixel.getBlue();
+            int r = pixel.getRed();
+            int g = pixel.getGreen();
+            int b = pixel.getBlue();
 
-                if ((r > 220 && g > 220 && b > 220) || (r < 40 && g < 40 && b < 40)) continue;
+            if ((r > 220 && g > 220 && b > 220) || (r < 40 && g < 40 && b < 40)) continue;
 
-                if (r > g + 30 && r > b + 30) redCount++;
-                else if (r > 180 && g > 180 && b < 100) yellowCount++;
-                else if (g > r + 20 && g > b + 20) greenCount++;
-                else if (b > r + 30 && b > g + 30) blueCount++;
+            float[] hsb = Color.RGBtoHSB(r, g, b, null);
+            float hue = hsb[0];
+            float saturation = hsb[1];
+            float brightness = hsb[2];
+
+            if (saturation > 0.4) {
+                // Vermelho
+                if ((hue >= 0.0 && hue < 0.05) || (hue > 0.95)) {
+                    if (brightness > 0.6) {
+                        redStrongCount++; // Flamengo
+                    } else {
+                        redDarkCount++;   // Fluminense
+                    }
+                } 
+                // Amarelo
+                else if (hue >= 0.14 && hue < 0.19) {
+                    yellowCount++;
+                } 
+                // Azul
+                else if (hue >= 0.58 && hue < 0.7) {
+                    blueCount++;
+                } 
+                // Verde
+                else if (hue >= 0.25 && hue < 0.45) {
+                    if (brightness > 0.6) {
+                        lightGreenCount++; // Wolfsburg
+                    } else {
+                        darkGreenCount++;  // Fluminense
+                    }
+                }
             }
         }
-
-        int maxCount = Math.max(Math.max(redCount, yellowCount), Math.max(blueCount, greenCount));
-
-        if (maxCount == 0) return new double[]{0,0,0,0};
-        
-        if (maxCount == redCount) return new double[]{1, 0, 0, 0};
-        if (maxCount == yellowCount) return new double[]{0, 1, 0, 0};
-        if (maxCount == blueCount) return new double[]{0, 0, 1, 0};
-        return new double[]{0, 0, 0, 1};
     }
+
+    int maxCount = Math.max(
+        redStrongCount,
+        Math.max(redDarkCount, Math.max(yellowCount, Math.max(blueCount, Math.max(darkGreenCount, lightGreenCount))))
+    );
+
+    if (maxCount == 0) return new double[]{0,0,0,0,0,0}; // Nenhuma cor dominante
+
+    // Retorna vetor de 6 posições (agora incluindo vermelho escuro e forte)
+    if (maxCount == redStrongCount) return new double[]{1,0,0,0,0,0}; // Flamengo
+    if (maxCount == redDarkCount)   return new double[]{0,1,0,0,0,0}; // Fluminense
+    if (maxCount == yellowCount)    return new double[]{0,0,1,0,0,0}; // Borussia
+    if (maxCount == blueCount)      return new double[]{0,0,0,1,0,0}; // Gremio
+    if (maxCount == darkGreenCount) return new double[]{0,0,0,0,1,0}; // Fluminense
+    return new double[]{0,0,0,0,0,1}; // Wolfsburg
+}
 }
