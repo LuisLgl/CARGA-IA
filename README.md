@@ -12,23 +12,6 @@ Todo o ambiente é **orquestrado com Docker Compose**.
 - **Machine Learning:** Smile ML  
 - **Containerização:** Docker + Docker Compose  
 
-
-## 📂 Estrutura de Diretórios  
-.
-├── docker-compose.yml
-├── gerador-de-mensagens/ # Serviço produtor (Java)
-├── consumidor-face/ # Serviço consumidor de faces
-├── consumidor-time/ # Serviço consumidor de times
-├── imagens/ # Imagens para ENVIO
-│ ├── image-faces/
-│ └── image-times/
-├── imagenstreino/ # Imagens para TREINO
-│ ├── image-faces/
-│ └── image-times/
-├── imagens-recebidas-face/ # Saída das imagens de faces
-└── imagens-recebidas-time/ # Saída das imagens de times
-
-
 ## ▶️ Como Executar  
 
 ### 🔧 Pré-requisitos  
@@ -67,9 +50,12 @@ Pressione Ctrl + C no terminal e depois rode:
 bash
 Copiar código
 docker-compose down
+<<<<<<< HEAD
 
 ### 🎬 Passo a Passo em Vídeo
 
 Para acompanhar o passo a passo completo do projeto, assista ao vídeo no YouTube:  
 
 [Assista ao vídeo](https://youtu.be/Vqc4NMQyWko)
+=======
+>>>>>>> 41abfa333e0ff06277cd01f0d085595ef3f424c5
