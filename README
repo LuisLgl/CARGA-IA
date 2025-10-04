@@ -1,0 +1,94 @@
+# 📦 CARGA-IA - Mensageria com RabbitMQ
+
+Este projeto implementa um sistema de mensageria utilizando **RabbitMQ** e consumidores em **Java**, simulando processamento de mensagens com foco em cargas de IA.
+
+## 🚀 Tecnologias Utilizadas
+- [Docker](https://www.docker.com/)  
+- [Docker Compose](https://docs.docker.com/compose/)  
+- [RabbitMQ](https://www.rabbitmq.com/) com **plugin de gerenciamento (porta 15672)**  
+- [Java 11+](https://adoptium.net/) / [Maven](https://maven.apache.org/)  
+
+---
+
+## 📂 Estrutura do Projeto
+
+```bash
+├── consumidor-face/       # Consumidor responsável pelo processamento de rosto
+│   └── pom.xml
+├── consumidor-time/       # Consumidor responsável pelo processamento de tempo
+│   └── pom.xml
+├── gerador-mensagens/     # Serviço que gera mensagens para a fila
+│   └── pom.xml
+├── docker-compose.yml     # Orquestração dos containers
+└── README.md              # Este arquivo
+⚙️ Como Rodar o Projeto
+Clone o repositório:
+
+bash
+Copiar código
+git clone https://github.com/seu-repo/CARGA-IA.git
+cd CARGA-IA
+Compile os módulos Java e gere os JARs:
+
+bash
+Copiar código
+mvn clean package
+Suba os containers com Docker Compose:
+
+bash
+Copiar código
+docker-compose up --build -d
+Verifique se os containers estão ativos:
+
+bash
+Copiar código
+docker ps
+Você deverá ver algo semelhante a:
+
+lua
+Copiar código
+carga-ia-consumidor-rosto-ia   "java -jar app.jar"
+carga-ia-consumidor-time-ia    "java -jar app.jar"
+carga-ia-gerador-mensagens     "java -jar app.jar"
+rabbitmq:3.9-management        "docker-entrypoint.sh"
+📊 Painel RabbitMQ
+URL: http://localhost:15672
+
+Usuário: guest
+
+Senha: guest
+
+Aqui você poderá monitorar:
+
+Filas criadas
+
+Mensagens em trânsito
+
+Consumidores conectados
+
+📨 Fluxo de Mensagens
+O Gerador de Mensagens publica mensagens em uma fila no RabbitMQ.
+
+O Consumidor de Rosto (consumidor-face) processa mensagens relacionadas a rostos.
+
+O Consumidor de Tempo (consumidor-time) processa mensagens relacionadas a tempo.
+
+🛑 Parando os Containers
+Para parar todos os serviços:
+
+bash
+Copiar código
+docker-compose down
+✅ Checklist de Teste
+ Subir os containers com docker-compose up -d
+
+ Acessar o painel do RabbitMQ em http://localhost:15672
+
+ Confirmar que as filas e consumidores aparecem no painel
+
+ Enviar mensagens e verificar se os consumidores processam corretamente
+
+nginx
+Copiar código
+
+Quer que eu adicione também exemplos de código (produtor e consumidor) no README, ou prefe
